@@ -1,19 +1,11 @@
 import streamlit as st
-import ollama
+import torch
+from transformers import pipeline
+
+pipe = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", torch_dtype=torch.bfloat16, device_map="auto")
 
 # Set app title
-st.title("DeltaPi AI - Local LLM Vision")
-
-st.sidebar.title("Upload Image")
-
-# Upload multiple files
-uploaded_images = st.sidebar.file_uploader("Upload images", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-
-# Display uploaded images
-if uploaded_images:
-    for uploaded_file in uploaded_images:
-        # Display the uploaded image
-        st.sidebar.image(uploaded_file)
+st.title("DeltaPi Chatbot")
 
 # Create chat message
 message = st.chat_message("assistant")
@@ -36,34 +28,23 @@ if prompt := st.chat_input("Prompt:"):
         st.markdown(prompt)
     
     # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})   
-
-     
+    st.session_state.messages.append({"role": "user", "content": prompt})    
 
    # Send user prompt to OpenAI
-    prompt = f"User prompt: {prompt}"
+    messages = [
+    {"role": "user", "content": f"User prompt: {prompt}"},
+    ]
+
+    prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+    # Get assistant response
+    response = pipe(prompt, max_new_tokens=256, do_sample=True, temperature=0.7, top_k=50, top_p=0.95)
+
+    assistant_response = response[0]["generated_text"].split("<|assistant|>")[1]
+
+    # Display assistant response in chat message container
+    with st.chat_message("assistant"):
+        st.markdown(assistant_response)
     
-    if uploaded_images:
-        # Get assistant response
-        response = ollama.generate(model='llava', prompt = prompt, images= uploaded_images)
-        assistant_response = response['response']
-
-        # Display assistant response in chat message container
-        with st.chat_message("assistant"):
-            st.markdown(assistant_response)
-        
-            # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-    else:
-        response = ollama.chat(model='llava', messages=[
-                {"role": "user", "content": f"{prompt}"}
-            ])
-
-        assistant_response = response['message']['content']
-
-        # Display assistant response in chat message container
-        with st.chat_message("assistant"):
-            st.markdown(assistant_response)
-        
-            # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+        # Add assistant response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
