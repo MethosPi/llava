@@ -1,11 +1,28 @@
 import streamlit as st
 import torch
+from PIL import Image
+import requests
+from transformers import AutoProcessor, LlavaForConditionalGeneration
 from transformers import pipeline
 
-pipe = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", torch_dtype=torch.bfloat16, device_map="auto")
+model = LlavaForConditionalGeneration.from_pretrained("llava-hf/llava-1.5-7b-hf")
+processor = AutoProcessor.from_pretrained("llava-hf/llava-1.5-7b-hf")
 
 # Set app title
-st.title("DeltaPi Chatbot")
+st.title("DeltaPi AI - Local LLM Vision")
+
+st.sidebar.title("Upload Image")
+
+# Upload multiple files
+uploaded_images = st.sidebar.file_uploader("Upload images", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+
+# Display uploaded images
+if uploaded_images:
+    for uploaded_file in uploaded_images:
+        image = Image.open(requests.get(url, stream=True).raw)
+        # Display the uploaded image
+        st.sidebar.image(uploaded_file)
+
 
 # Create chat message
 message = st.chat_message("assistant")
@@ -35,16 +52,16 @@ if prompt := st.chat_input("Prompt:"):
     {"role": "user", "content": f"User prompt: {prompt}"},
     ]
 
-    prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = processor(text=prompt, images=image, return_tensors="pt")
 
-    # Get assistant response
-    response = pipe(prompt, max_new_tokens=256, do_sample=True, temperature=0.7, top_k=50, top_p=0.95)
+    generate_ids = model.generate(**inputs, max_length=30)
+    response = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
-    assistant_response = response[0]["generated_text"].split("<|assistant|>")[1]
+#    assistant_response = response[0]["generated_text"].split("<|assistant|>")[1]
 
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
-        st.markdown(assistant_response)
+        st.markdown(response)
     
         # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+    st.session_state.messages.append({"role": "assistant", "content": response})
