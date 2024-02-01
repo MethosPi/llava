@@ -1,2 +1,2 @@
-ollama
-streamlit
+transformers
+torch
