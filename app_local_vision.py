@@ -1,11 +1,5 @@
 import streamlit as st
-import requests
-from PIL import Image
-import requests
-import base64
 import ollama
-
-
 
 # Set app title
 st.title("DeltaPi AI - Local LLM Vision")
